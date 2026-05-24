@@ -1,0 +1,391 @@
+cat > /home/tugas2-vue-ut/tracking.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tracking Delivery Order — SITTA UT</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* Style khusus tracking page */
+    .search-box {
+      display: flex;
+      gap: 8px;
+      max-width: 480px;
+    }
+    .search-box .form-control {
+      font-family: 'Courier New', monospace;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .harga-highlight {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .ekspedisi-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="logo-icon">S</div>
+      <span class="logo-text">SITTA UT</span>
+    </a>
+    <ul class="navbar-nav">
+      <li><a href="index.html">🏠 <span class="nav-text">Beranda</span></a></li>
+      <li><a href="stok.html">📦 <span class="nav-text">Stok</span></a></li>
+      <li><a href="tracking.html" class="active">🚚 <span class="nav-text">Tracking DO</span></a></li>
+    </ul>
+  </nav>
+
+  <!-- Mount point Vue -->
+  <div id="app">
+    <div class="container">
+
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">🚚 Tracking Delivery Order</h1>
+          <p class="page-subtitle">Lacak status pengiriman bahan ajar dan buat DO baru</p>
+        </div>
+        <!-- Buka form tambah DO baru -->
+        <button class="btn btn-primary" @click="bukaModalTambahDO">
+          ➕ Buat DO Baru
+        </button>
+      </div>
+
+      <!-- ===== AREA CARI DO ===== -->
+      <div class="card mb-3" style="margin-bottom:16px;">
+        <div class="card-header">
+          <span class="card-title">🔍 Cari Delivery Order</span>
+        </div>
+        <div class="card-body">
+          <div class="search-box">
+            <!--
+              v-model ke inputCariDO — dua arah, saat user ketik, data langsung update.
+              @keyup.enter jalankan method cariDO saat tekan Enter.
+            -->
+            <input
+              type="text"
+              class="form-control"
+              v-model="inputCariDO"
+              placeholder="Masukkan Nomor DO (cth: DO2025-001)"
+              @keyup.enter="cariDO"
+            />
+            <button class="btn btn-primary" @click="cariDO">Cari</button>
+            <!-- Tombol clear hanya muncul kalau ada pencarian aktif -->
+            <button class="btn btn-outline" @click="resetCari" v-if="inputCariDO">✕</button>
+          </div>
+
+          <!-- Pesan error kalau DO tidak ketemu — v-show biar DOM tetap ada -->
+          <div class="alert alert-warning mt-2" v-show="pesanCariError" style="margin-top:12px;">
+            ⚠️ {{ pesanCariError }}
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== LIST SEMUA DO ===== -->
+      <!--
+        daftarDO adalah computed yang convert object tracking jadi array.
+        Kalau ada pencarian aktif, hanya tampilkan yang cocok.
+      -->
+      <div v-if="daftarDODitampilkan.length > 0">
+
+        <!-- Loop render setiap DO card -->
+        <div
+          class="do-card"
+          v-for="do_item in daftarDODitampilkan"
+          :key="do_item.nomorDO"
+        >
+          <!-- Header card DO dengan nomor dan badge status -->
+          <div class="do-card-header">
+            <span class="do-number">📋 {{ do_item.nomorDO }}</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span class="ekspedisi-badge">📦 {{ do_item.ekspedisi }}</span>
+              <!--
+                Badge status: pakai :class binding dinamis.
+                badgeStatus() return class yang tepat berdasarkan status.
+              -->
+              <span class="badge" :class="badgeStatus(do_item.status)">
+                {{ do_item.status }}
+              </span>
+            </div>
+          </div>
+
+          <div class="do-card-body">
+
+            <!-- Info grid kiri-kanan -->
+            <div class="do-info-grid">
+              <div>
+                <div class="do-field-label">NIM</div>
+                <div class="do-field-value font-mono">{{ do_item.nim }}</div>
+              </div>
+              <div>
+                <div class="do-field-label">Nama Penerima</div>
+                <div class="do-field-value">{{ do_item.nama }}</div>
+              </div>
+              <div>
+                <div class="do-field-label">Tanggal Kirim</div>
+                <div class="do-field-value">{{ formatTanggal(do_item.tanggalKirim) }}</div>
+              </div>
+              <div>
+                <div class="do-field-label">Paket Bahan Ajar</div>
+                <div class="do-field-value">
+                  <!-- v-text buat binding teks biasa -->
+                  <span v-text="getNamaPaket(do_item.paket)"></span>
+                  <div class="text-xs text-muted font-mono">{{ do_item.paket }}</div>
+                </div>
+              </div>
+              <div>
+                <div class="do-field-label">Total Harga</div>
+                <div class="harga-highlight">Rp {{ formatRupiah(do_item.total) }}</div>
+              </div>
+            </div>
+
+            <!-- Timeline perjalanan DO -->
+            <div>
+              <div class="do-field-label" style="margin-bottom:12px;">📍 Riwayat Perjalanan</div>
+              <div class="timeline">
+                <!--
+                  Loop perjalanan — tiap item satu milestone.
+                  Perjalanan dibalik dulu (reverse) supaya terbaru di atas.
+                -->
+                <div
+                  class="timeline-item"
+                  v-for="(perj, i) in [...do_item.perjalanan].reverse()"
+                  :key="i"
+                >
+                  <!--
+                    Dot pertama (paling atas = terbaru) dikasih warna berbeda.
+                    Pakai :style binding buat inline style kondisional.
+                  -->
+                  <div
+                    class="timeline-dot"
+                    :style="i === 0 ? 'background: #057a55; box-shadow: 0 0 0 2px #057a55' : ''"
+                  ></div>
+                  <div class="timeline-time">⏱ {{ perj.waktu }}</div>
+                  <div class="timeline-content">{{ perj.keterangan }}</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Empty state kalau tidak ada DO -->
+      <div class="card" v-else>
+        <div class="card-body">
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <div class="empty-state-text">
+              <!-- Pesan berbeda tergantung konteks pencarian atau memang kosong -->
+              <span v-if="inputCariDO">Nomor DO "{{ inputCariDO }}" tidak ditemukan</span>
+              <span v-else>Belum ada Delivery Order</span>
+            </div>
+            <div class="empty-state-sub">
+              <span v-if="!inputCariDO">Klik tombol "Buat DO Baru" untuk memulai</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /container -->
+
+    <!-- ===== MODAL FORM TAMBAH DO BARU ===== -->
+    <div class="modal-overlay" v-if="showModalDO" @click.self="tutupModalDO">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title">➕ Buat Delivery Order Baru</span>
+          <button class="modal-close" @click="tutupModalDO">×</button>
+        </div>
+
+        <div class="modal-body">
+
+          <!-- Pesan sukses setelah DO berhasil dibuat -->
+          <div class="alert alert-success" v-if="pesanSuksesDO">
+            ✅ {{ pesanSuksesDO }}
+          </div>
+
+          <div v-show="!pesanSuksesDO">
+
+            <!-- Nomor DO auto-generate — read only, user tidak perlu isi -->
+            <div class="form-group">
+              <label class="form-label">Nomor DO (Auto)</label>
+              <!--
+                :value pakai one-way binding buat field yang tidak perlu two-way.
+                disabled supaya tidak bisa diedit user.
+              -->
+              <input
+                type="text"
+                class="form-control"
+                :value="nomorDOBerikutnya"
+                disabled
+                style="background:#f3f4f6; font-family:monospace; font-weight:700; color: var(--primary-dark);"
+              />
+              <div class="text-xs text-muted mt-2">Nomor DO dibuat otomatis berurutan</div>
+            </div>
+
+            <div class="form-grid-2">
+
+              <div class="form-group">
+                <label class="form-label">NIM *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  :class="{ 'is-invalid': errorsDO.nim }"
+                  v-model="formDO.nim"
+                  placeholder="Masukkan NIM"
+                />
+                <div class="invalid-feedback" v-if="errorsDO.nim">⚠️ {{ errorsDO.nim }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Nama Lengkap *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  :class="{ 'is-invalid': errorsDO.nama }"
+                  v-model="formDO.nama"
+                  placeholder="Masukkan nama lengkap"
+                />
+                <div class="invalid-feedback" v-if="errorsDO.nama">⚠️ {{ errorsDO.nama }}</div>
+              </div>
+
+            </div>
+
+            <div class="form-grid-2">
+
+              <div class="form-group">
+                <label class="form-label">Ekspedisi *</label>
+                <select
+                  class="form-control"
+                  :class="{ 'is-invalid': errorsDO.ekspedisi }"
+                  v-model="formDO.ekspedisi"
+                >
+                  <option value="">— Pilih Ekspedisi —</option>
+                  <!--
+                    Loop dari pengirimanList.
+                    :value pakai kode, teks tampil nama.
+                  -->
+                  <option
+                    v-for="exp in pengirimanList"
+                    :key="exp.kode"
+                    :value="exp.nama"
+                  >
+                    {{ exp.nama }}
+                  </option>
+                </select>
+                <div class="invalid-feedback" v-if="errorsDO.ekspedisi">⚠️ {{ errorsDO.ekspedisi }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Tanggal Kirim *</label>
+                <input
+                  type="date"
+                  class="form-control"
+                  :class="{ 'is-invalid': errorsDO.tanggalKirim }"
+                  v-model="formDO.tanggalKirim"
+                />
+                <div class="invalid-feedback" v-if="errorsDO.tanggalKirim">⚠️ {{ errorsDO.tanggalKirim }}</div>
+              </div>
+
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Paket Bahan Ajar *</label>
+              <select
+                class="form-control"
+                :class="{ 'is-invalid': errorsDO.paket }"
+                v-model="formDO.paket"
+              >
+                <option value="">— Pilih Paket —</option>
+                <!-- Tampilkan kode dan nama paket di dropdown -->
+                <option v-for="p in paketList" :key="p.kode" :value="p.kode">
+                  {{ p.kode }} — {{ p.nama }}
+                </option>
+              </select>
+              <div class="invalid-feedback" v-if="errorsDO.paket">⚠️ {{ errorsDO.paket }}</div>
+
+              <!--
+                Detail isi paket muncul HANYA saat paket sudah dipilih.
+                v-if dependent on formDO.paket yang tidak kosong.
+                paketDipilih adalah computed yang return object paket yang dipilih.
+              -->
+              <div class="paket-info-box" v-if="paketDipilih">
+                <div class="paket-info-title">📚 Isi Paket:</div>
+                <!-- Loop isi paket -->
+                <div
+                  class="paket-info-item"
+                  v-for="kodeBA in paketDipilih.isi"
+                  :key="kodeBA"
+                >
+                  📖 {{ kodeBA }} — {{ getJudulBuku(kodeBA) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Total harga auto-kalkulasi dari paket yang dipilih -->
+            <div class="form-group">
+              <label class="form-label">Total Harga (Otomatis)</label>
+              <div style="
+                padding: 10px 14px;
+                background: var(--primary-light);
+                border: 1px solid #c3d9f8;
+                border-radius: 6px;
+                font-size: 18px;
+                font-weight: 700;
+                color: var(--primary-dark);
+              ">
+                <!--
+                  Computed totalHargaDO otomatis berubah saat paket berubah.
+                  Kalau paket belum dipilih tampilkan Rp 0.
+                -->
+                Rp {{ formatRupiah(totalHargaDO) }}
+              </div>
+              <div class="text-xs text-muted mt-2">Harga diambil otomatis dari data paket</div>
+            </div>
+
+          </div><!-- /v-show -->
+        </div><!-- /modal-body -->
+
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="tutupModalDO">Batal</button>
+          <button class="btn btn-primary" @click="simpanDO" v-if="!pesanSuksesDO">
+            🚀 Buat Delivery Order
+          </button>
+          <button class="btn btn-success" @click="tutupModalDO" v-else>
+            ✅ Selesai
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" v-if="toastMsg">{{ toastMsg }}</div>
+
+  </div><!-- /#app -->
+
+  <script src="js/dataBahanAjar.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="js/tracking-app.js"></script>
+
+</body>
+</html>
+HTMLEOF
