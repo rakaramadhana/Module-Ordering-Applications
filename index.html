@@ -1,0 +1,210 @@
+cat > /home/claude/tugas2-vue-ut/index.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SITTA UT — Sistem Informasi Tiras & Transaksi Bahan Ajar</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /*
+     * Style khusus halaman index/landing ini.
+     * Karena cuma halaman pengantar, designnya dibuat lebih "wow"
+     * supaya kesan pertamanya bagus.
+     */
+    .hero {
+      min-height: calc(100vh - 60px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1e3a5f 0%, #1a56db 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Lingkaran dekoratif di background biar ga polos */
+    .hero::before {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.03);
+      top: -100px;
+      right: -100px;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      bottom: -80px;
+      left: -50px;
+    }
+
+    .hero-content {
+      text-align: center;
+      color: white;
+      max-width: 640px;
+      padding: 40px 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 999px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 24px;
+      backdrop-filter: blur(4px);
+    }
+
+    .hero-title {
+      font-size: 42px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .hero-title span {
+      /* Teks "SITTA" dikasih efek gradien biar standout */
+      background: linear-gradient(90deg, #93c5fd, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-desc {
+      font-size: 16px;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.7;
+      margin-bottom: 40px;
+    }
+
+    /* Grid dua kartu menu utama */
+    .menu-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .menu-card {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 16px;
+      padding: 28px 20px;
+      text-decoration: none;
+      color: white;
+      transition: all 0.25s;
+      backdrop-filter: blur(8px);
+      text-align: center;
+    }
+
+    .menu-card:hover {
+      background: rgba(255,255,255,0.18);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+    }
+
+    .menu-card-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .menu-card-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .menu-card-desc {
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.5;
+    }
+
+    /* Info versi kecil di bawah */
+    .hero-footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+    }
+
+    @media (max-width: 480px) {
+      .hero-title { font-size: 28px; }
+      .menu-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="logo-icon">S</div>
+      <span class="logo-text">SITTA UT</span>
+    </a>
+    <ul class="navbar-nav">
+      <!-- Active class di link yang lagi aktif -->
+      <li><a href="index.html" class="active">🏠 <span class="nav-text">Beranda</span></a></li>
+      <li><a href="stok.html">📦 <span class="nav-text">Stok</span></a></li>
+      <li><a href="tracking.html">🚚 <span class="nav-text">Tracking DO</span></a></li>
+    </ul>
+  </nav>
+
+  <!-- ===== HERO SECTION ===== -->
+  <section class="hero">
+    <div class="hero-content">
+
+      <!-- Badge penanda ini aplikasi apa -->
+      <div class="hero-badge">
+        🎓 Universitas Terbuka · Sistem Informasi Bahan Ajar
+      </div>
+
+      <h1 class="hero-title">
+        Kelola Bahan Ajar<br>
+        dengan <span>SITTA UT</span>
+      </h1>
+
+      <p class="hero-desc">
+        Sistem Informasi Tiras dan Transaksi Bahan Ajar — platform terpusat
+        untuk memantau stok, mengelola distribusi, dan melacak pengiriman
+        bahan ajar ke seluruh UPBJJ Universitas Terbuka.
+      </p>
+
+      <!-- Grid dua menu utama -->
+      <div class="menu-grid">
+        <a href="stok.html" class="menu-card">
+          <span class="menu-card-icon">📦</span>
+          <div class="menu-card-title">Stok Bahan Ajar</div>
+          <div class="menu-card-desc">Kelola dan pantau stok buku di setiap UPBJJ</div>
+        </a>
+        <a href="tracking.html" class="menu-card">
+          <span class="menu-card-icon">🚚</span>
+          <div class="menu-card-title">Tracking DO</div>
+          <div class="menu-card-desc">Lacak status pengiriman Delivery Order</div>
+        </a>
+      </div>
+
+      <div class="hero-footer">
+        Tugas Praktik 2 · STSI4209 · Vue.js Implementation
+      </div>
+
+    </div>
+  </section>
+
+</body>
+</html>
+HTMLEOF
