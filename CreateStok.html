@@ -1,0 +1,514 @@
+cat > /home/tugas2-vue-ut/stok.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stok Bahan Ajar — SITTA UT</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="logo-icon">S</div>
+      <span class="logo-text">SITTA UT</span>
+    </a>
+    <ul class="navbar-nav">
+      <li><a href="index.html">🏠 <span class="nav-text">Beranda</span></a></li>
+      <li><a href="stok.html" class="active">📦 <span class="nav-text">Stok</span></a></li>
+      <li><a href="tracking.html">🚚 <span class="nav-text">Tracking DO</span></a></li>
+    </ul>
+  </nav>
+
+  <!-- ===== KONTEN UTAMA — dikendalikan Vue instance ===== -->
+  <!-- id="app" adalah titik mount Vue, semua directive v-* harus ada di dalamnya -->
+  <div id="app">
+    <div class="container">
+
+      <!-- Header halaman + tombol tambah -->
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">📦 Stok Bahan Ajar</h1>
+          <p class="page-subtitle">Kelola dan pantau stok bahan ajar seluruh UPBJJ Universitas Terbuka</p>
+        </div>
+        <!-- Klik tombol ini buat buka modal form tambah bahan ajar -->
+        <button class="btn btn-primary" @click="bukaModalTambah">
+          ➕ Tambah Bahan Ajar
+        </button>
+      </div>
+
+      <!-- ===== KARTU STATISTIK RINGKASAN ===== -->
+      <!-- Pakai computed property dari stok-app.js supaya otomatis update -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-blue">📚</div>
+          <div>
+            <div class="stat-value">{{ totalJudul }}</div>
+            <div class="stat-label">Total Judul</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-green">✅</div>
+          <div>
+            <!-- Computed jumlahAman hanya menghitung yang qty >= safety -->
+            <div class="stat-value text-success">{{ jumlahAman }}</div>
+            <div class="stat-label">Stok Aman</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-yellow">⚠️</div>
+          <div>
+            <div class="stat-value text-warning">{{ jumlahMenipis }}</div>
+            <div class="stat-label">Stok Menipis</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-red">🚨</div>
+          <div>
+            <div class="stat-value text-danger">{{ jumlahKosong }}</div>
+            <div class="stat-label">Stok Kosong</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== FILTER & SORT BAR ===== -->
+      <div class="filter-bar">
+        <div class="filter-bar-title">🔍 Filter &amp; Urutkan</div>
+
+        <div class="filter-grid">
+
+          <!-- Filter UT-Daerah — watcher memantau perubahan ini -->
+          <div class="filter-group">
+            <label class="filter-label">UT-Daerah</label>
+            <!-- v-model dua arah ke filterUpbjj di data() -->
+            <select class="filter-select" v-model="filterUpbjj">
+              <option value="">Semua Daerah</option>
+              <!-- v-for loop setiap item di upbjjList dari dummy data -->
+              <option v-for="upbjj in upbjjList" :key="upbjj" :value="upbjj">{{ upbjj }}</option>
+            </select>
+          </div>
+
+          <!-- Filter Kategori — muncul HANYA kalau UT-Daerah sudah dipilih (dependent options) -->
+          <!-- v-if untuk conditional rendering, kalau filterUpbjj kosong elemen ini ga ada di DOM -->
+          <div class="filter-group" v-if="filterUpbjj">
+            <label class="filter-label">Kategori MK</label>
+            <select class="filter-select" v-model="filterKategori">
+              <option value="">Semua Kategori</option>
+              <option v-for="kat in kategoriList" :key="kat" :value="kat">{{ kat }}</option>
+            </select>
+          </div>
+
+          <!-- Dropdown sort berdasarkan kolom -->
+          <div class="filter-group">
+            <label class="filter-label">Urutkan</label>
+            <select class="filter-select" v-model="sortBy">
+              <option value="">— Pilih urutan —</option>
+              <option value="judul">Judul (A-Z)</option>
+              <option value="qty">Stok (terbanyak)</option>
+              <option value="harga">Harga (termahal)</option>
+            </select>
+          </div>
+
+          <!-- Checkbox filter stok kritis — bisa pilih lebih dari satu -->
+          <div class="filter-group">
+            <label class="filter-label">Tampilkan Stok</label>
+            <div>
+              <label class="filter-checkbox-item">
+                <!-- v-model ke array filterKritis — Vue otomatis handle multiple checkbox -->
+                <input type="checkbox" v-model="filterKritis" value="menipis" />
+                ⚠️ Hanya yang Menipis
+              </label>
+              <label class="filter-checkbox-item">
+                <input type="checkbox" v-model="filterKritis" value="kosong" />
+                🚨 Hanya yang Kosong
+              </label>
+            </div>
+          </div>
+
+          <!-- Tombol reset filter — method resetFilter() di stok-app.js -->
+          <div class="filter-group" style="justify-content: flex-end;">
+            <button class="btn btn-outline" @click="resetFilter">
+              🔄 Reset Filter
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ===== TABEL STOK ===== -->
+      <div class="card">
+        <div class="card-header">
+          <!-- Computed stokTerfilter.length otomatis update saat filter berubah -->
+          <span class="card-title">📋 Daftar Stok ({{ stokTerfilter.length }} data)</span>
+
+          <!-- Indikator watcher aktif — muncul saat filter sedang aktif -->
+          <!-- v-show ga hapus dari DOM, cuma hidden. Beda sama v-if -->
+          <span class="badge badge-warning" v-show="adaFilterAktif">
+            🔍 Filter Aktif
+          </span>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <!-- @click di header kolom buat toggle sort -->
+                <th @click="setSortBy('judul')">
+                  Kode / Judul
+                  <!-- Tampilkan ikon sort cuma kalau kolom ini yang dipilih -->
+                  <span v-if="sortBy === 'judul'">↑</span>
+                </th>
+                <th>Kategori</th>
+                <th>UT-Daerah</th>
+                <th>Lok. Rak</th>
+                <th @click="setSortBy('harga')">
+                  Harga
+                  <span v-if="sortBy === 'harga'">↓</span>
+                </th>
+                <th @click="setSortBy('qty')">
+                  Stok
+                  <span v-if="sortBy === 'qty'">↓</span>
+                </th>
+                <th>Safety</th>
+                <th>Status</th>
+                <th>Catatan</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!--
+                v-for loop merender baris per bahan ajar dari computed stokTerfilter.
+                :key wajib diisi biar Vue bisa track perubahan dengan efisien.
+              -->
+              <tr v-for="(item, idx) in stokTerfilter" :key="item.kode">
+                <td>
+                  <div class="font-bold font-mono text-primary">{{ item.kode }}</div>
+                  <div class="text-sm text-muted">{{ item.judul }}</div>
+                </td>
+                <td>
+                  <!-- Badge warna sesuai kategori -->
+                  <span class="badge" :class="badgeKategori(item.kategori)">{{ item.kategori }}</span>
+                </td>
+                <td>{{ item.upbjj }}</td>
+                <td class="font-mono text-sm">{{ item.lokasiRak }}</td>
+                <td>Rp {{ formatRupiah(item.harga) }}</td>
+                <td class="font-bold">{{ item.qty }}</td>
+                <td class="text-muted">{{ item.safety }}</td>
+                <td>
+                  <!--
+                    Conditional status pakai v-if / v-else-if / v-else.
+                    Urutan penting: kosong dicek duluan sebelum menipis.
+                  -->
+                  <span class="badge badge-danger" v-if="item.qty === 0">
+                    🚨 Kosong
+                  </span>
+                  <span class="badge badge-warning" v-else-if="item.qty < item.safety">
+                    ⚠️ Menipis
+                  </span>
+                  <span class="badge badge-success" v-else>
+                    ✅ Aman
+                  </span>
+                </td>
+                <td>
+                  <!--
+                    v-html untuk render HTML dari catatanHTML.
+                    Hati-hati, jangan pakai ini buat konten dari user input random
+                    karena bisa kena XSS. Ini aman karena datanya dari dummy data kita sendiri.
+                  -->
+                  <span v-html="item.catatanHTML" class="text-sm"></span>
+                </td>
+                <td>
+                  <div class="flex gap-2">
+                    <!-- Kirim index ke method buka edit — pakai index dari array asli stok -->
+                    <button class="btn btn-sm btn-outline" @click="bukaModalEdit(item)">✏️ Edit</button>
+                  </div>
+                </td>
+              </tr>
+
+              <!--
+                Empty state — muncul pakai v-if kalau stokTerfilter kosong.
+                Pakai colspan biar spanning semua kolom.
+              -->
+              <tr v-if="stokTerfilter.length === 0">
+                <td colspan="10">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">🔍</div>
+                    <div class="empty-state-text">Tidak ada data yang cocok</div>
+                    <div class="empty-state-sub">Coba ubah filter atau reset untuk melihat semua data</div>
+                  </div>
+                </td>
+              </tr>
+
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /container -->
+
+    <!-- ===== MODAL TAMBAH BAHAN AJAR ===== -->
+    <!--
+      v-if dipakai di sini supaya modal beneran dihapus dari DOM saat tidak ditampilkan.
+      Bedanya sama v-show: v-if lebih hemat resource karena element ga ada di DOM.
+    -->
+    <div class="modal-overlay" v-if="showModalTambah" @click.self="tutupModalTambah">
+      <!-- @click.self = hanya trigger kalau klik di overlay-nya langsung, bukan isinya -->
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title">➕ Tambah Bahan Ajar Baru</span>
+          <button class="modal-close" @click="tutupModalTambah">×</button>
+        </div>
+
+        <div class="modal-body">
+          <!--
+            Kalau ada pesan sukses, tampilkan notif dulu.
+            v-if akan menyembunyikan form dan gantinya tampilkan alert.
+          -->
+          <div class="alert alert-success" v-if="pesanSuksesTambah">
+            ✅ {{ pesanSuksesTambah }}
+          </div>
+
+          <!-- v-show supaya form tetap ada di DOM waktu sukses ditampilkan, tapi tersembunyi -->
+          <div v-show="!pesanSuksesTambah">
+
+            <div class="form-grid-2">
+              <!-- Setiap field pakai v-model untuk two-way data binding ke formTambah -->
+
+              <div class="form-group">
+                <label class="form-label">Kode MK *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.kode }"
+                  v-model="formTambah.kode"
+                  placeholder="cth: EKMA4116"
+                />
+                <!-- Error message hanya muncul kalau errors.kode ada isinya -->
+                <div class="invalid-feedback" v-if="errors.kode">⚠️ {{ errors.kode }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Judul Bahan Ajar *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.judul }"
+                  v-model="formTambah.judul"
+                  placeholder="cth: Pengantar Manajemen"
+                />
+                <div class="invalid-feedback" v-if="errors.judul">⚠️ {{ errors.judul }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Kategori *</label>
+                <!-- v-bind:class disingkat :class, untuk binding dinamis -->
+                <select class="form-control" :class="{ 'is-invalid': errors.kategori }" v-model="formTambah.kategori">
+                  <option value="">— Pilih Kategori —</option>
+                  <option v-for="kat in kategoriList" :key="kat" :value="kat">{{ kat }}</option>
+                </select>
+                <div class="invalid-feedback" v-if="errors.kategori">⚠️ {{ errors.kategori }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">UT-Daerah (UPBJJ) *</label>
+                <select class="form-control" :class="{ 'is-invalid': errors.upbjj }" v-model="formTambah.upbjj">
+                  <option value="">— Pilih UPBJJ —</option>
+                  <option v-for="upbjj in upbjjList" :key="upbjj" :value="upbjj">{{ upbjj }}</option>
+                </select>
+                <div class="invalid-feedback" v-if="errors.upbjj">⚠️ {{ errors.upbjj }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Lokasi Rak *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.lokasiRak }"
+                  v-model="formTambah.lokasiRak"
+                  placeholder="cth: R1-A3"
+                />
+                <div class="invalid-feedback" v-if="errors.lokasiRak">⚠️ {{ errors.lokasiRak }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Harga (Rp) *</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.harga }"
+                  v-model.number="formTambah.harga"
+                  placeholder="cth: 65000"
+                  min="0"
+                />
+                <!-- .number modifier otomatis convert string ke number -->
+                <div class="invalid-feedback" v-if="errors.harga">⚠️ {{ errors.harga }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Jumlah Stok (Qty) *</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.qty }"
+                  v-model.number="formTambah.qty"
+                  placeholder="cth: 20"
+                  min="0"
+                />
+                <div class="invalid-feedback" v-if="errors.qty">⚠️ {{ errors.qty }}</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Safety Stock *</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.safety }"
+                  v-model.number="formTambah.safety"
+                  placeholder="cth: 10"
+                  min="0"
+                />
+                <div class="invalid-feedback" v-if="errors.safety">⚠️ {{ errors.safety }}</div>
+              </div>
+
+            </div><!-- /form-grid-2 -->
+
+            <div class="form-group">
+              <label class="form-label">Catatan (bisa HTML)</label>
+              <input
+                type="text"
+                class="form-control"
+                v-model="formTambah.catatanHTML"
+                placeholder="cth: Edisi terbaru, <em>perlu cek</em>"
+              />
+              <!-- Preview real-time catatan HTML sebelum disimpan -->
+              <div class="paket-info-box mt-2" v-if="formTambah.catatanHTML">
+                <div class="paket-info-title">Preview Catatan:</div>
+                <!-- v-html lagi buat preview -->
+                <span v-html="formTambah.catatanHTML"></span>
+              </div>
+            </div>
+
+          </div><!-- /v-show -->
+        </div><!-- /modal-body -->
+
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="tutupModalTambah">Batal</button>
+          <!-- Tombol submit panggil method simpanTambah() -->
+          <button class="btn btn-primary" @click="simpanTambah" v-if="!pesanSuksesTambah">
+            💾 Simpan Bahan Ajar
+          </button>
+          <button class="btn btn-success" @click="tutupModalTambah" v-else>
+            ✅ Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MODAL EDIT STOK ===== -->
+    <div class="modal-overlay" v-if="showModalEdit" @click.self="tutupModalEdit">
+      <div class="modal">
+        <div class="modal-header">
+          <!-- v-text sama kayak mustache {{ }}, tapi mencegah flash konten sebelum Vue load -->
+          <span class="modal-title">✏️ Edit Stok: <span class="font-mono text-primary" v-text="formEdit.kode"></span></span>
+          <button class="modal-close" @click="tutupModalEdit">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="alert alert-info">
+            ℹ️ Kamu bisa edit jumlah stok, safety stock, dan catatan. Kode dan judul tidak bisa diubah.
+          </div>
+
+          <div class="form-grid-2">
+
+            <!-- Field readonly — v-bind:disabled atau cukup disabled -->
+            <div class="form-group">
+              <label class="form-label">Kode MK</label>
+              <input type="text" class="form-control" v-model="formEdit.kode" disabled style="background:#f3f4f6; cursor: not-allowed;" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Judul</label>
+              <input type="text" class="form-control" v-model="formEdit.judul" disabled style="background:#f3f4f6; cursor: not-allowed;" />
+            </div>
+
+            <!-- Ini yang bisa diedit -->
+            <div class="form-group">
+              <label class="form-label">Jumlah Stok (Qty) *</label>
+              <input
+                type="number"
+                class="form-control"
+                :class="{ 'is-invalid': errorsEdit.qty }"
+                v-model.number="formEdit.qty"
+                min="0"
+              />
+              <div class="invalid-feedback" v-if="errorsEdit.qty">⚠️ {{ errorsEdit.qty }}</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Safety Stock *</label>
+              <input
+                type="number"
+                class="form-control"
+                :class="{ 'is-invalid': errorsEdit.safety }"
+                v-model.number="formEdit.safety"
+                min="0"
+              />
+              <div class="invalid-feedback" v-if="errorsEdit.safety">⚠️ {{ errorsEdit.safety }}</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Harga (Rp)</label>
+              <input type="number" class="form-control" v-model.number="formEdit.harga" min="0" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Lokasi Rak</label>
+              <input type="text" class="form-control" v-model="formEdit.lokasiRak" />
+            </div>
+
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Catatan (bisa HTML)</label>
+            <input type="text" class="form-control" v-model="formEdit.catatanHTML" />
+            <!-- Preview catatan setelah edit -->
+            <div class="paket-info-box mt-2" v-if="formEdit.catatanHTML">
+              <div class="paket-info-title">Preview:</div>
+              <span v-html="formEdit.catatanHTML"></span>
+            </div>
+          </div>
+
+          <!-- Preview status stok real-time berdasarkan nilai yang lagi diketik -->
+          <div class="alert" :class="alertStatusEdit">
+            {{ pesanStatusEdit }}
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="tutupModalEdit">Batal</button>
+          <button class="btn btn-primary" @click="simpanEdit">💾 Simpan Perubahan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TOAST NOTIFIKASI ===== -->
+    <!-- Muncul sebentar terus hilang otomatis, diatur di stok-app.js -->
+    <div class="toast" v-if="toastMsg">
+      {{ toastMsg }}
+    </div>
+
+  </div><!-- /#app -->
+
+  <!-- Load dummy data dulu sebelum Vue -->
+  <script src="js/dataBahanAjar.js"></script>
+  <!-- Load Vue 3 dari CDN — versi production lebih cepat -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <!-- Load logika Vue buat stok.html -->
+  <script src="js/stok-app.js"></script>
+
+</body>
+</html>
+HTMLEOF
